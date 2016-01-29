@@ -910,8 +910,8 @@ void Objectness::Predict( string imgfile, int numDetPerSize)
 	
 	int i,topN=5;
 	char szImgPath[256];
-	loadTrainedModelOnly("/home/chigo/working/research/Bing/Objectness-master/VOC2007/Results/ObjNessB2W8MAXBGR");
-	//loadTrainedModelOnly("/home/chigo/working/research/Bing/Objectness-master/IN2016_Test/Results/ObjNessB2W8MAXBGR");
+	//loadTrainedModelOnly("/home/chigo/working/research/Bing/Objectness-master/VOC2007/Results/ObjNessB2W8MAXBGR");
+	loadTrainedModelOnly("/home/chigo/working/research/Bing/Objectness-master/IN2016_Test/Results/ObjNessB2W8MAXBGR");
 
 	ValStructVec<float, Vec4i> boxTests;
 
