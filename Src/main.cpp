@@ -16,8 +16,8 @@ void illutrateLoG()
 void RunObjectness(CStr &resName, double base, int W, int NSS, int numPerSz)
 {
     srand((unsigned int)time(NULL));
-    DataSetVOC voc2007("/home/chigo/working/research/Bing/Objectness-master/IN2016_Test/");
-	//DataSetVOC voc2007("/home/chigo/working/research/Bing/Objectness-master/VOC2007/");
+    //DataSetVOC voc2007("/home/chigo/working/research/Bing/Objectness-master/IN2016_Test/");
+	DataSetVOC voc2007("/home/chigo/working/research/Bing/Objectness-master/VOC2007/");
     voc2007.loadAnnotations();
     //voc2007.loadDataGenericOverCls();
 
@@ -42,8 +42,8 @@ void RunObjectness(CStr &resName, double base, int W, int NSS, int numPerSz)
 void Predict(CStr &resName, double base, int W, int NSS, int numPerSz)
 {
     srand((unsigned int)time(NULL));
-    DataSetVOC voc2007("/home/chigo/working/research/Bing/Objectness-master/IN2016_Test/");
-	//DataSetVOC voc2007("/home/chigo/working/research/Bing/Objectness-master/VOC2007/");
+    //DataSetVOC voc2007("/home/chigo/working/research/Bing/Objectness-master/IN2016_Test/");
+	DataSetVOC voc2007("/home/chigo/working/research/Bing/Objectness-master/VOC2007/");
 
     Objectness objNess(voc2007, base, W, NSS);
 

@@ -92,6 +92,7 @@ private: // Help functions
 	inline string strVec4i(const Vec4i &v) const {return format("%d, %d, %d, %d", v[0], v[1], v[2], v[3]);}
 
 	void generateTrianData();
+	void generateTrianData_BigData();
 	void trainStageI();
 	void trainStateII(int numPerSz = 100);
 	void predictBBoxSI(CMat &mag3u, ValStructVec<float, Vec4i> &valBoxes, vecI &sz, int NUM_WIN_PSZ = 100, bool fast = true);

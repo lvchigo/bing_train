@@ -334,7 +334,8 @@ void Objectness::trainObjectness(int numDetPerSize)
 
 	//* Learning stage I    
 	printf("trainObjectness-1\n");
-	generateTrianData();
+	//generateTrianData();
+	generateTrianData_BigData();	//added by chigo-20160129
 	printf("trainObjectness-2\n");
     tm1.Start();
 	trainStageI();
@@ -387,7 +388,8 @@ void Objectness::generateTrianData()
 			int x1 = rand() % im3u.cols + 1, x2 = rand() % im3u.cols + 1;
 			int y1 = rand() % im3u.rows + 1, y2 = rand() % im3u.rows + 1;
 			Vec4i bb(min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2));
-			if (maxIntUnion(bb, _voc.gtTrainBoxes[i]) < 0.5)
+			//fixed by chigo-20160129
+			if (maxIntUnion(bb, _voc.gtTrainBoxes[i]) < 0.3)	//0.5,0.3
 				xN.push_back(getFeature(im3u, bb));
 		}
 	}
@@ -422,6 +424,82 @@ void Objectness::generateTrianData()
 	matWrite(_modelName + ".xN", xN1f);
 }
 
+void Objectness::generateTrianData_BigData()
+{
+	const int NUM_TRAIN = _voc.trainNum;
+	const int FILTER_SZ = _W*_W;
+	vector<vector<Mat>> xTrainP(NUM_TRAIN), xTrainN(NUM_TRAIN);
+	vector<vecI> szTrainP(NUM_TRAIN); // Corresponding size index. 
+	//fixed by chigo-20160129
+	const int NUM_NEG_BOX = 5; //100,// Number of negative windows sampled from each image
+
+#pragma omp parallel for
+	for (int i = 0; i < NUM_TRAIN; i++)	{
+		const int NUM_GT_BOX = (int)_voc.gtTrainBoxes[i].size();
+		vector<Mat> &xP = xTrainP[i], &xN = xTrainN[i];
+		vecI &szP = szTrainP[i];
+		xP.reserve(NUM_GT_BOX*2), szP.reserve(NUM_GT_BOX*2), xN.reserve(NUM_NEG_BOX);
+		Mat im3u = imread(format(_S(_voc.imgPathW), _S(_voc.trainSet[i])));
+
+		// Get positive training data
+		for (int k = 0; k < NUM_GT_BOX; k++){
+			const Vec4i& bbgt =  _voc.gtTrainBoxes[i][k];
+			vector<Vec4i> bbs; // bounding boxes;
+			vecI bbR; // Bounding box ratios
+			int nS = gtBndBoxSampling(bbgt, bbs, bbR);
+			for (int j = 0; j < nS; j++){
+				bbs[j][2] = min(bbs[j][2], im3u.cols);
+				bbs[j][3] = min(bbs[j][3], im3u.rows);
+				Mat mag1f = getFeature(im3u, bbs[j]), magF1f;
+				//flip(mag1f, magF1f, CV_FLIP_HORIZONTAL);
+				xP.push_back(mag1f);
+				//xP.push_back(magF1f);
+				szP.push_back(bbR[j]);
+				//szP.push_back(bbR[j]);
+			}			
+		}
+		// Get negative training data
+		for (int k = 0; k < NUM_NEG_BOX; k++){
+			int x1 = rand() % im3u.cols + 1, x2 = rand() % im3u.cols + 1;
+			int y1 = rand() % im3u.rows + 1, y2 = rand() % im3u.rows + 1;
+			Vec4i bb(min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2));
+			//fixed by chigo-20160129
+			if (maxIntUnion(bb, _voc.gtTrainBoxes[i]) < 0.3)	//0.3, 0.5
+				xN.push_back(getFeature(im3u, bb));
+		}
+	}
+	
+	const int NUM_R = _numT * _numT + 1;
+	vecI szCount(NUM_R); // Object counts of each size (combination of scale and aspect ratio) 
+	int numP = 0, numN = 0, iP = 0, iN = 0;
+	for (int i = 0; i < NUM_TRAIN; i++){
+		numP += xTrainP[i].size();
+		numN += xTrainN[i].size();
+		const vecI &rP = szTrainP[i];
+		for (size_t j = 0; j < rP.size(); j++)
+			szCount[rP[j]]++;
+	}
+	vecI szActive; // Indexes of active size
+	for (int r = 1; r < NUM_R; r++){
+		if (szCount[r] > 50) // If only 50- positive samples at this size, ignore it.
+			szActive.push_back(r-1);			
+	}
+	matWrite(_modelName + ".idx", Mat(szActive));
+
+	Mat xP1f(numP, FILTER_SZ, CV_32F), xN1f(numN, FILTER_SZ, CV_32F);
+	for (int i = 0; i < NUM_TRAIN; i++)	{
+		vector<Mat> &xP = xTrainP[i], &xN = xTrainN[i];
+		for (size_t j = 0; j < xP.size(); j++)
+			memcpy(xP1f.ptr(iP++), xP[j].data, FILTER_SZ*sizeof(float));
+		for (size_t j = 0; j < xN.size(); j++)
+			memcpy(xN1f.ptr(iN++), xN[j].data, FILTER_SZ*sizeof(float));
+	}
+	CV_Assert(numP == iP && numN == iN);
+	matWrite(_modelName + ".xP", xP1f);
+	matWrite(_modelName + ".xN", xN1f);
+}
+
+
 Mat Objectness::getFeature(CMat &img3u, const Vec4i &bb)
 {
 	int x = bb[0] - 1, y = bb[1] - 1;
@@ -442,7 +520,9 @@ int Objectness::gtBndBoxSampling(const Vec4i &bbgt, vector<Vec4i> &samples, vecI
 	for (int h = hMin; h <= hMax; h++) for (int w = wMin; w <= wMax; w++){
 		int wT = tLen(w) - 1, hT = tLen(h) - 1;
 		Vec4i bb(bbgt[0], bbgt[1], bbgt[0] + wT, bbgt[1] + hT);
-		if (DataSetVOC::interUnio(bb, bbgt) >= 0.5){
+		//fixed by chigo-20160129
+		if (DataSetVOC::interUnio(bb, bbgt) >= 0.7) //0.5,0.7
+		{
 			samples.push_back(bb);
 			bbR.push_back(sz2idx(w, h));
 			//if (bbgt[3] > hT){
@@ -675,9 +755,12 @@ Mat Objectness::trainSVM(const vector<Mat> &pX1f, const vector<Mat> &nX1f, int s
 		ind[i] = i;
 	int numP = pX1f.size(), feaDim = pX1f[0].cols;
 	int totalSample = numP + nX1f.size();
+	printf("trainSVM:totalSample:%d,numP:%d,feaDim:%d\n",totalSample,numP,feaDim);
 	if (totalSample > maxTrainNum)
 		random_shuffle(ind.begin(), ind.end());
 	totalSample = min(totalSample, maxTrainNum);
+	printf("trainSVM:totalSample:%d,maxTrainNum:%d\n",totalSample,maxTrainNum);
+	
 	Mat X1f(totalSample, feaDim, CV_32F);
 	vecI Y(totalSample);
 	for(int i = 0; i < numP; i++){
@@ -688,6 +771,9 @@ Mat Objectness::trainSVM(const vector<Mat> &pX1f, const vector<Mat> &nX1f, int s
 		nX1f[ind[i - numP]].copyTo(X1f.row(i));
 		Y[i] = -1;
 	}
+
+	printf("trainSVM:copy data end!!\n");
+	
 	return trainSVM(X1f, Y, sT, C, bias, eps);
 }
 
@@ -824,8 +910,8 @@ void Objectness::Predict( string imgfile, int numDetPerSize)
 	
 	int i,topN=5;
 	char szImgPath[256];
-	//loadTrainedModelOnly("/home/chigo/working/research/Bing/Objectness-master/VOC2007/Results/ObjNessB2W8MAXBGR");
-	loadTrainedModelOnly("/home/chigo/working/research/Bing/Objectness-master/IN2016_Test/Results/ObjNessB2W8MAXBGR");
+	loadTrainedModelOnly("/home/chigo/working/research/Bing/Objectness-master/VOC2007/Results/ObjNessB2W8MAXBGR");
+	//loadTrainedModelOnly("/home/chigo/working/research/Bing/Objectness-master/IN2016_Test/Results/ObjNessB2W8MAXBGR");
 
 	ValStructVec<float, Vec4i> boxTests;
 

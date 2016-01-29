@@ -8,10 +8,11 @@ DataSetVOC::DataSetVOC(CStr &_wkDir)
 	localDir = wkDir + "Local/";
 	imgPathW = wkDir + "JPEGImages/%s.jpg";
 
+	//added by chigo-20160129
 	{
 		//annoPathW = wkDir + "Annotations/%s.yml";
 		annoPathW = wkDir + "Annotations/%s.xml";
-		Bin_Xml_Yml = 1;//Bin_Xml_Yml:1-Xml,0-Yml;
+		Bin_Xml_Yml = 1;//Bin_Xml_Yml:1-Xml,0-Yml;	
 	}
 	
 	CmFile::MkDir(resDir);
@@ -185,6 +186,7 @@ bool DataSetVOC::loadBBoxes(CStr &nameNE, vector<Vec4i> &boxes, vecI &clsIdx)
 	return true;
 }
 
+//added by chigo-20160129
 bool DataSetVOC::loadBBoxes_XML(CStr &nameNE, vector<Vec4i> &boxes, vecI &clsIdx)
 {
 	string xmlImageID;
